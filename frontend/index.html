@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Visual Novel & AI Story Engine</title>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        /* Ecrã Inicial / Menu */
+        #setup-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(13, 17, 23, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .setup-box {
+            background: #161b22;
+            border: 1px solid #30363d;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+            width: 350px;
+        }
+        .setup-box h2 {
+            margin-top: 0;
+            color: #58a6ff;
+        }
+        .setup-box input {
+            width: 90%;
+            padding: 10px;
+            margin: 15px 0;
+            background: #0d1117;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 16px;
+        }
+        .setup-box button {
+            width: 100%;
+            padding: 10px;
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .setup-box button:hover {
+            background: #2ea043;
+        }
+
+        /* Interface da Visual Novel */
+        #game-interface {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        #chat-container {
+            width: 800px;
+            max-width: 100%;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .message {
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .user-msg {
+            color: #58a6ff;
+            font-weight: bold;
+            border-left: 3px solid #58a6ff;
+            padding-left: 10px;
+        }
+        .ai-msg {
+            color: #e6edf3;
+            margin-top: 5px;
+        }
+        img.scene-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            margin-top: 10px;
+            border: 1px solid #30363d;
+        }
+        #input-container {
+            display: flex;
+            margin-top: 20px;
+            width: 800px;
+            max-width: 100%;
+        }
+        textarea {
+            flex: 1;
+            background: #0d1117;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 10px;
+            resize: none;
+            height: 60px;
+            font-family: inherit;
+        }
+        .send-btn {
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0 20px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .send-btn:hover {
+            background: #2ea043;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ecrã Inicial / Configuração do Protagonista -->
+    <div id="setup-screen">
+        <div class="setup-box">
+            <h2>Visual Novel Engine</h2>
+            <p style="font-size: 14px; color: #8b949e;">Insira o nome do seu protagonista:</p>
+            <input type="text" id="player-name-input" placeholder="Ex: Arthur (Deixe vazio para Anon)" autocomplete="off">
+            <button onclick="startGame()">Iniciar História</button>
+        </div>
+    </div>
+
+    <!-- Interface Principal do Jogo -->
+    <div id="game-interface">
+        <div id="chat-container">
+            <div class="message">
+                <p><em>A história começa aqui. Digite sua ação para interagir...</em></p>
+            </div>
+            <div id="story-log"></div>
+        </div>
+
+        <div id="input-container">
+            <textarea id="user-prompt" placeholder="Escreva sua ação aqui..."></textarea>
+            <button class="send-btn" onclick="sendAction()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        let playerName = "Anon";
+
+        function startGame() {
+            const inputVal = document.getElementById("player-name-input").value.trim();
+            if (inputVal !== "") {
+                playerName = inputVal;
+            }
+
+            // Oculta o menu inicial e mostra a interface do jogo
+            document.getElementById("setup-screen").style.display = "none";
+            document.getElementById("game-interface").style.display = "flex";
+        }
+
+        async function sendAction() {
+            const promptBox = document.getElementById("user-prompt");
+            const text = promptBox.value.trim();
+            if (!text) return;
+
+            const logDiv = document.getElementById("story-log");
+
+            logDiv.innerHTML += `<div class="message user-msg"><strong>${playerName} (Ação):</strong><br>${text}</div>`;
+            promptBox.value = "";
+            window.scrollTo(0, document.body.scrollHeight);
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: text, player_name: playerName })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    let imageHtml = data.image ? `<br><img class="scene-img" src="${data.image}" alt="Cena">` : "";
+                    logDiv.innerHTML += `<div class="message ai-msg"><strong>${data.character_name}:</strong><br>${data.response.replace(/\n/g, '<br>')}${imageHtml}</div>`;
+                } else {
+                    logDiv.innerHTML += `<div class="message" style="color: #f85149;">Erro: ${data.detail}</div>`;
+                }
+            } catch (err) {
+                logDiv.innerHTML += `<div class="message" style="color: #f85149;">Erro de conexão com o servidor.</div>`;
+            }
+
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+    </script>
+</body>
+</html>
